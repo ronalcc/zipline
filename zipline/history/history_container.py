@@ -20,6 +20,7 @@ import logbook
 import numpy as np
 import pandas as pd
 from six import itervalues, iteritems, iterkeys
+from datetime import date, timedelta
 
 from . history import HistorySpec
 
@@ -253,6 +254,9 @@ class HistoryContainer(object):
         # for volume, `max` for high, `min` for low, etc.).
         self.buffer_panel = self.create_buffer_panel(initial_dt, bar_data)
 
+        self.dividend_frame = pd.DataFrame()
+        self._dividend_count = 0
+
         # Dictionaries with Frequency objects as keys.
         self.digest_panels, self.cur_window_starts, self.cur_window_closes = \
             self.create_digest_panels(initial_sids, initial_dt)
@@ -483,6 +487,7 @@ class HistoryContainer(object):
             window=window,
             items=self.fields,
             sids=self.sids,
+            dividend_adjusted=spec.dividend_adjusted,
             initial_dates=date_buf,
         )
 
@@ -618,7 +623,7 @@ class HistoryContainer(object):
         )
         freq = '1m' if self.data_frequency == 'minute' else '1d'
         spec = HistorySpec(
-            max_bars_needed + 1, freq, None, None, self.data_frequency,
+            max_bars_needed + 1, freq, None, None, None, self.data_frequency,
         )
 
         rp = self._create_panel(
@@ -658,6 +663,7 @@ class HistoryContainer(object):
         # sids.
         digest_panel = self.digest_panels[history_spec.frequency]
         frame = digest_panel.get_current(field, raw=True)
+
         if do_ffill:
             # Do forward-filling *before* truncating down to the requested
             # number of bars.  This protects us from losing data if an illiquid
@@ -711,9 +717,10 @@ class HistoryContainer(object):
         """
         data = data._data
         frame_data = np.empty((len(self.fields), len(self.sids))) * np.nan
-
+        
         for j, sid in enumerate(self.sids):
             sid_data = data.get(sid)
+
             if not sid_data:
                 continue
             if algo_dt != sid_data['dt']:
@@ -737,6 +744,14 @@ class HistoryContainer(object):
         self.update_last_known_values()
         self.update_digest_panels(algo_dt, self.buffer_panel)
         self.buffer_panel.add_frame(algo_dt, frame)
+
+    def update_dividends(self, dividend_frame):
+        """
+        Set the dividend_frame to the updated dividend frame. 
+        DataFrame columns should contain at least the entries in
+        zp.DIVIDEND_FIELDS.
+        """
+        self.dividend_frame = dividend_frame
 
     def update_digest_panels(self, algo_dt, buffer_panel, freq_filter=None):
         """
@@ -895,6 +910,10 @@ class HistoryContainer(object):
         """
         field = history_spec.field
         do_ffill = history_spec.ffill
+        do_dividend_adjust = history_spec.dividend_adjusted
+
+        if field == 'volume':
+            do_dividend_adjust = False
 
         # Get our stored values from periods prior to the current period.
         digest_frame, index = self.digest_bars(history_spec, do_ffill)
@@ -918,12 +937,57 @@ class HistoryContainer(object):
                 raw=True
             )
         last_period = self.frame_to_series(field, buffer_frame, self.sids)
-        return fast_build_history_output(digest_frame,
-                                         last_period,
-                                         algo_dt,
-                                         index=index,
-                                         columns=self.sids)
+        history_output = fast_build_history_output(digest_frame,
+                                                   last_period,
+                                                   algo_dt,
+                                                   index=index,
+                                                   columns=self.sids)
 
+        if do_dividend_adjust:
+            for security_object in history_output.columns.values:
+                dividends = get_dividends_for_security(self.dividend_frame,
+                                                       security_object,
+                                                       algo_dt)
+
+                # get the pricing for this security
+                pricing = history_output[security_object]
+                adjusted_pricing = pricing
+
+                for dividend in dividends.iterrows():
+                    ex_date = dividend[1]['ex_date']
+                    dividend_amt = dividend[1]['gross_amount']
+                    prices_to_adjust = pricing[pricing.index < ex_date]
+
+                    if prices_to_adjust.empty:
+                        continue
+
+                    close_price_day_before_ex_date = prices_to_adjust.iloc[-1]
+                    dividend_multiplier = \
+                        get_dividend_multiplier(close_price_day_before_ex_date,
+                                                dividend_amt)
+                    prices_to_adjust = prices_to_adjust * dividend_multiplier
+                    adjusted_pricing.update(prices_to_adjust)
+
+                history_output[security_object] = adjusted_pricing
+
+
+        return history_output
+
+def get_dividends_for_security(dividend_frame, security_object, algo_dt):
+    # get the dividends for this security
+    dividends = dividend_frame[dividend_frame['sid'] == security_object]
+    # filter dividends to include only the ones that are paid before the
+    # current algo date time.
+    dividends = dividends[dividends['ex_date'] < algo_dt]
+    # reverse the order so the newest dividend is first
+    dividends = dividends.iloc[::-1]
+
+    return dividends
+
+def get_dividend_multiplier(close_price_day_before_ex_date,
+                            dividend_amt):
+    
+    return 1 - (dividend_amt/close_price_day_before_ex_date)
 
 def fast_build_history_output(buffer_frame,
                               last_period,

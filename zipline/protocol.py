@@ -368,7 +368,7 @@ class SIDData(object):
                 hst.columns = hst.columns.astype(int)
             self._history_cache[field] = (hst, hst.values, hst.columns)
 
-        # Slice of only the bars needed. This is because we strore the LARGEST
+        # Slice of only the bars needed. This is because we store the LARGEST
         # amount of history for the field, and we might request less than the
         # largest from the cache.
         buffer_, values, columns = cls._history_cache[field]

@@ -204,25 +204,13 @@ class PerformanceTracker(object):
             self.saved_dt = date
             self.todays_performance.period_close = self.saved_dt
 
-    def update_dividends(self, new_dividends):
+    def update_dividends(self, dividend_frame):
         """
-        Update our dividend frame with new dividends.  @new_dividends should be
-        a DataFrame with columns containing at least the entries in
-        zipline.protocol.DIVIDEND_FIELDS.
+        Set the dividend_frame to the updated dividend frame. 
+        DataFrame columns should contain at least the entries in
+        zp.DIVIDEND_FIELDS.
         """
-
-        # Mark each new dividend with a unique integer id.  This ensures that
-        # we can differentiate dividends whose date/sid fields are otherwise
-        # identical.
-        new_dividends['id'] = np.arange(
-            self._dividend_count,
-            self._dividend_count + len(new_dividends),
-        )
-        self._dividend_count += len(new_dividends)
-
-        self.dividend_frame = pd.concat(
-            [self.dividend_frame, new_dividends]
-        ).sort(['pay_date', 'ex_date']).set_index('id', drop=False)
+        self.dividend_frame = dividend_frame
 
     def initialize_dividends_from_other(self, other):
         """

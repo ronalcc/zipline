@@ -38,6 +38,7 @@ class RollingPanel(object):
                  window,
                  items,
                  sids,
+                 dividend_adjusted,
                  cap_multiple=2,
                  dtype=np.float64,
                  initial_dates=None):
@@ -49,6 +50,7 @@ class RollingPanel(object):
         self.minor_axis = _ensure_index(sids)
 
         self.cap_multiple = cap_multiple
+        self.dividend_adjusted = dividend_adjusted
 
         self.dtype = dtype
         if initial_dates is None:

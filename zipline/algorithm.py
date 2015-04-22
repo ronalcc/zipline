@@ -220,6 +220,9 @@ class TradingAlgorithm(object):
         self.history_container = None
         self.history_specs = {}
 
+        self.dividend_frame = pd.DataFrame()
+        self._dividend_count = 0
+
         # If string is passed in, execute and get reference to
         # functions.
         self.algoscript = kwargs.pop('script', None)
@@ -901,12 +904,29 @@ class TradingAlgorithm(object):
         """
         self.blotter.transact = transact
 
-    def update_dividends(self, dividend_frame):
+    def update_dividends(self, new_dividends):
         """
-        Set DataFrame used to process dividends.  DataFrame columns should
-        contain at least the entries in zp.DIVIDEND_FIELDS.
+        Update our dividend frame with new dividends.  @new_dividends should be
+        a DataFrame with columns containing at least the entries in
+        zipline.protocol.DIVIDEND_FIELDS.
         """
-        self.perf_tracker.update_dividends(dividend_frame)
+
+        # Mark each new dividend with a unique integer id.  This ensures that
+        # we can differentiate dividends whose date/sid fields are otherwise
+        # identical.
+        new_dividends['id'] = np.arange(
+            self._dividend_count,
+            self._dividend_count + len(new_dividends),
+        )
+        self._dividend_count += len(new_dividends)
+
+        self.dividend_frame = pd.concat(
+            [self.dividend_frame, new_dividends]
+        ).sort(['pay_date', 'ex_date']).set_index('id', drop=False)
+
+        self.perf_tracker.update_dividends(self.dividend_frame)
+        if self.history_container:
+            self.history_container.update_dividends(self.dividend_frame)
 
     @api_method
     def set_slippage(self, slippage):
@@ -1040,9 +1060,11 @@ class TradingAlgorithm(object):
         self.blotter.cancel(order_id)
 
     @api_method
-    def add_history(self, bar_count, frequency, field, ffill=True):
+    def add_history(self, bar_count, frequency, field, ffill=True,
+                    dividend_adjusted=False):
         data_frequency = self.sim_params.data_frequency
-        history_spec = HistorySpec(bar_count, frequency, field, ffill,
+        history_spec = HistorySpec(bar_count, frequency, field,
+                                   ffill, dividend_adjusted,
                                    data_frequency=data_frequency)
         self.history_specs[history_spec.key_str] = history_spec
         if self.initialized:
@@ -1058,8 +1080,10 @@ class TradingAlgorithm(object):
                     self.sim_params.data_frequency,
                 )
 
-    def get_history_spec(self, bar_count, frequency, field, ffill):
-        spec_key = HistorySpec.spec_key(bar_count, frequency, field, ffill)
+    def get_history_spec(self, bar_count, frequency, field, ffill,
+                         dividend_adjusted):
+        spec_key = HistorySpec.spec_key(bar_count, frequency, field,
+                                        ffill, dividend_adjusted)
         if spec_key not in self.history_specs:
             data_freq = self.sim_params.data_frequency
             spec = HistorySpec(
@@ -1067,6 +1091,7 @@ class TradingAlgorithm(object):
                 frequency,
                 field,
                 ffill,
+                dividend_adjusted,
                 data_frequency=data_freq,
             )
             self.history_specs[spec_key] = spec
@@ -1084,12 +1109,14 @@ class TradingAlgorithm(object):
         return self.history_specs[spec_key]
 
     @api_method
-    def history(self, bar_count, frequency, field, ffill=True):
+    def history(self, bar_count, frequency, field, ffill=True,
+                dividend_adjusted=False):
         history_spec = self.get_history_spec(
             bar_count,
             frequency,
             field,
             ffill,
+            dividend_adjusted,
         )
         return self.history_container.get_history(history_spec, self.datetime)
 

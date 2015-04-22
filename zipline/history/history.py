@@ -255,14 +255,14 @@ class HistorySpec(object):
     FORWARD_FILLABLE = frozenset({'price'})
 
     @classmethod
-    def spec_key(cls, bar_count, freq_str, field, ffill):
+    def spec_key(cls, bar_count, freq_str, field, ffill, dividend_adjusted):
         """
         Used as a hash/key value for the HistorySpec.
         """
-        return "{0}:{1}:{2}:{3}".format(
-            bar_count, freq_str, field, ffill)
+        return "{0}:{1}:{2}:{3}:{4}".format(
+            bar_count, freq_str, field, ffill, dividend_adjusted)
 
-    def __init__(self, bar_count, frequency, field, ffill,
+    def __init__(self, bar_count, frequency, field, ffill, dividend_adjusted,
                  data_frequency='daily'):
 
         # Number of bars to look back.
@@ -279,13 +279,17 @@ class HistorySpec(object):
         self.frequency = frequency
         # The field, e.g. 'price', 'volume', etc.
         self.field = field
+        # Whether or not to adjust the data for dividends. This adjustment uses
+        # the same calculation as Yahoo! Finance.
+        # https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
+        self.dividend_adjusted = dividend_adjusted
         # Whether or not to forward fill nan data.  Only has an effect if this
         # spec's field is in FORWARD_FILLABLE.
         self._ffill = ffill
 
         # Calculate the cache key string once.
         self.key_str = self.spec_key(
-            bar_count, frequency.freq_str, field, ffill)
+            bar_count, frequency.freq_str, field, ffill, dividend_adjusted)
 
     @property
     def ffill(self):
