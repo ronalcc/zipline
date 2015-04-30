@@ -63,7 +63,6 @@ import pickle
 from six import iteritems
 from datetime import datetime
 
-import numpy as np
 import pandas as pd
 from pandas.tseries.tools import normalize_date
 
@@ -206,7 +205,7 @@ class PerformanceTracker(object):
 
     def update_dividends(self, dividend_frame):
         """
-        Set the dividend_frame to the updated dividend frame. 
+        Set the dividend_frame to the updated dividend frame.
         DataFrame columns should contain at least the entries in
         zp.DIVIDEND_FIELDS.
         """

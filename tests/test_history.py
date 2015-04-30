@@ -138,6 +138,7 @@ def get_index_at_dt(case_input):
         case_input['frequency'],
         None,
         False,
+        False,
         data_frequency='minute',
     )
     return history.index_at_dt(history_spec, case_input['algo_dt'])
@@ -231,6 +232,7 @@ class TestHistoryContainer(TestCase):
             frequency='1m',
             field='price',
             ffill=True,
+            dividend_adjusted=False,
             data_frequency='minute'
         )
         no_fill_spec = history.HistorySpec(
@@ -238,6 +240,7 @@ class TestHistoryContainer(TestCase):
             frequency='1m',
             field='price',
             ffill=False,
+            dividend_adjusted=False,
             data_frequency='minute'
         )
 
@@ -281,6 +284,7 @@ class TestHistoryContainer(TestCase):
             frequency='1d',
             field='price',
             ffill=True,
+            dividend_adjusted=False,
             data_frequency='minute'
         )
         specs = {spec.key_str: spec}
@@ -1106,6 +1110,7 @@ class TestHistoryContainerResize(TestCase):
             frequency=freq,
             field=field,
             ffill=True,
+            dividend_adjusted=False,
             data_frequency=data_frequency,
         )
         specs = {spec.key_str: spec}
@@ -1135,6 +1140,7 @@ class TestHistoryContainerResize(TestCase):
                 frequency=freq,
                 field=field,
                 ffill=True,
+                dividend_adjusted=False,
                 data_frequency=data_frequency,
             ),
             history.HistorySpec(
@@ -1142,6 +1148,7 @@ class TestHistoryContainerResize(TestCase):
                 frequency=freq,
                 field=field,
                 ffill=True,
+                dividend_adjusted=False,
                 data_frequency=data_frequency,
             ),
         )
@@ -1171,6 +1178,7 @@ class TestHistoryContainerResize(TestCase):
             frequency=freq,
             field=first,
             ffill=True,
+            dividend_adjusted=False,
             data_frequency=data_frequency,
         )
         specs = {spec.key_str: spec}
@@ -1199,6 +1207,7 @@ class TestHistoryContainerResize(TestCase):
             frequency=freq,
             field=second,
             ffill=True,
+            dividend_adjusted=False,
             data_frequency=data_frequency,
         )
 
@@ -1231,6 +1240,7 @@ class TestHistoryContainerResize(TestCase):
             frequency=first,
             field=field,
             ffill=True,
+            dividend_adjusted=False,
             data_frequency=data_frequency,
         )
         specs = {spec.key_str: spec}
@@ -1259,6 +1269,7 @@ class TestHistoryContainerResize(TestCase):
             frequency=second,
             field=field,
             ffill=True,
+            dividend_adjusted=False,
             data_frequency=data_frequency,
         )
 

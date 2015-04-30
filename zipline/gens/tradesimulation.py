@@ -189,7 +189,6 @@ class AlgorithmSimulator(object):
         occurring in the next snapshot.  This is the more conservative model,
         and as such it is the default behavior in TradingAlgorithm.
         """
-
         # Flags indicating whether we saw any events of type TRADE and type
         # BENCHMARK.  Respectively, these control whether or not handle_data is
         # called for this snapshot and whether we emit a perf message for this

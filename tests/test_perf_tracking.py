@@ -176,12 +176,23 @@ def calculate_results(host,
     perf_tracker = perf.PerformanceTracker(host.sim_params)
 
     if dividend_events is not None:
+
         dividend_frame = pd.DataFrame(
             [
                 event.to_series(index=zp.DIVIDEND_FIELDS)
                 for event in dividend_events
             ],
         )
+
+        # The 'id' field is set in the trading algorithm by update dividend
+        # For testing purposes, we are building the dividend frame and
+        # injecting it into the perf_tracker directly. Thus, we need to add
+        # the 'id' field here manually.
+        dividend_frame['id'] = np.arange(
+            len(dividend_frame)
+        )
+        dividend_frame.sort(['pay_date', 'ex_date']).set_index('id',
+                                                               drop=False)
         perf_tracker.update_dividends(dividend_frame)
 
     # Raw trades

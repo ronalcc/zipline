@@ -20,7 +20,6 @@ import logbook
 import numpy as np
 import pandas as pd
 from six import itervalues, iteritems, iterkeys
-from datetime import date, timedelta
 
 from . history import HistorySpec
 
@@ -487,7 +486,6 @@ class HistoryContainer(object):
             window=window,
             items=self.fields,
             sids=self.sids,
-            dividend_adjusted=spec.dividend_adjusted,
             initial_dates=date_buf,
         )
 
@@ -717,7 +715,7 @@ class HistoryContainer(object):
         """
         data = data._data
         frame_data = np.empty((len(self.fields), len(self.sids))) * np.nan
-        
+
         for j, sid in enumerate(self.sids):
             sid_data = data.get(sid)
 
@@ -747,7 +745,7 @@ class HistoryContainer(object):
 
     def update_dividends(self, dividend_frame):
         """
-        Set the dividend_frame to the updated dividend frame. 
+        Set the dividend_frame to the updated dividend frame.
         DataFrame columns should contain at least the entries in
         zp.DIVIDEND_FIELDS.
         """
@@ -944,6 +942,10 @@ class HistoryContainer(object):
                                                    columns=self.sids)
 
         if do_dividend_adjust:
+            # return the non adjusted price if there are no dividends
+            if self.dividend_frame.empty:
+                return history_output
+
             for security_object in history_output.columns.values:
                 dividends = get_dividends_for_security(self.dividend_frame,
                                                        security_object,
@@ -970,8 +972,8 @@ class HistoryContainer(object):
 
                 history_output[security_object] = adjusted_pricing
 
-
         return history_output
+
 
 def get_dividends_for_security(dividend_frame, security_object, algo_dt):
     # get the dividends for this security
@@ -984,10 +986,11 @@ def get_dividends_for_security(dividend_frame, security_object, algo_dt):
 
     return dividends
 
+
 def get_dividend_multiplier(close_price_day_before_ex_date,
                             dividend_amt):
-    
     return 1 - (dividend_amt/close_price_day_before_ex_date)
+
 
 def fast_build_history_output(buffer_frame,
                               last_period,

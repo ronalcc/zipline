@@ -1103,6 +1103,8 @@ class TradingAlgorithm(object):
                     self.sim_params.data_frequency,
                     bar_data=self._most_recent_data,
                 )
+
+            self.history_container.update_dividends(self.dividend_frame)
             self.history_container.ensure_spec(
                 spec, self.datetime, self._most_recent_data,
             )
