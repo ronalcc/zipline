@@ -33,3 +33,6 @@ cyordereddict==0.2.2
 bottleneck==1.0.0
 
 contextlib2==0.4.0
+
+# Graph algorithms used by zipline.modelling
+networkx==1.9.1
