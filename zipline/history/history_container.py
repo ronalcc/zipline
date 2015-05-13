@@ -254,7 +254,6 @@ class HistoryContainer(object):
         self.buffer_panel = self.create_buffer_panel(initial_dt, bar_data)
 
         self.dividend_frame = pd.DataFrame()
-        self._dividend_count = 0
 
         # Dictionaries with Frequency objects as keys.
         self.digest_panels, self.cur_window_starts, self.cur_window_closes = \
@@ -951,6 +950,10 @@ class HistoryContainer(object):
                                                        security_object,
                                                        algo_dt)
 
+                # if there are no dividends for this security, continue
+                if dividends.empty:
+                    continue
+
                 # get the pricing for this security
                 pricing = history_output[security_object]
                 adjusted_pricing = pricing
@@ -976,8 +979,13 @@ class HistoryContainer(object):
 
 
 def get_dividends_for_security(dividend_frame, security_object, algo_dt):
-    # get the dividends for this security
-    dividends = dividend_frame[dividend_frame['sid'] == security_object]
+    # try to get the dividends for this security
+    try:
+        dividends = dividend_frame.loc[security_object]
+    # if no dividends exist for this security, return an empty data frame
+    except:
+        return pd.DataFrame()
+
     # filter dividends to include only the ones that are paid before the
     # current algo date time.
     dividends = dividends[dividends['ex_date'] < algo_dt]

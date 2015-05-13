@@ -922,7 +922,7 @@ class TradingAlgorithm(object):
 
         self.dividend_frame = pd.concat(
             [self.dividend_frame, new_dividends]
-        ).sort(['pay_date', 'ex_date']).set_index('id', drop=False)
+        ).sort(['pay_date', 'ex_date']).set_index('id', drop=False, append=True)
 
         self.perf_tracker.update_dividends(self.dividend_frame)
         if self.history_container:
