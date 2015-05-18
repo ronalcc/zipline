@@ -23,6 +23,9 @@ from six import itervalues, iteritems, iterkeys
 
 from . history import HistorySpec
 
+from qexec.sources.ohlcv_panel import ohlcv_panel_from_source
+
+from zipline.utils.tradingcalendar import trading_day
 from zipline.finance.trading import with_environment
 from zipline.utils.data import RollingPanel, _ensure_index
 from zipline.utils.munge import ffill, bfill
@@ -253,7 +256,7 @@ class HistoryContainer(object):
         # for volume, `max` for high, `min` for low, etc.).
         self.buffer_panel = self.create_buffer_panel(initial_dt, bar_data)
 
-        self.dividend_frame = pd.DataFrame()
+        self.dividend_multiplier_frame = pd.DataFrame()
 
         # Dictionaries with Frequency objects as keys.
         self.digest_panels, self.cur_window_starts, self.cur_window_closes = \
@@ -742,13 +745,48 @@ class HistoryContainer(object):
         self.update_digest_panels(algo_dt, self.buffer_panel)
         self.buffer_panel.add_frame(algo_dt, frame)
 
-    def update_dividends(self, dividend_frame):
+    def update_dividend_multipliers(self, dividend_frame, last_close_dt):
         """
-        Set the dividend_frame to the updated dividend frame.
-        DataFrame columns should contain at least the entries in
-        zp.DIVIDEND_FIELDS.
+        Calculate the dividend_multiplier_frame from the dividend_frame.
         """
-        self.dividend_frame = dividend_frame
+        if dividend_frame.empty:
+            self.dividend_multiplier_frame = pd.DataFrame()
+            return
+
+        ohlcv_data = ohlcv_panel_from_source(
+            # no good - need to get the data from somewhere else
+            self.backfill_source_dispatch,
+            self.sids,
+            start_date=pd.Timestamp('2002-01-01 00:00:00+0000', tz='UTC'),
+            end_date=last_close_dt,
+            data_frequency='daily',
+        )
+
+        close_prices = ohlcv_data['close_price']
+        close_prices = close_prices.unstack().swaplevel(0,1)
+        dividend_frame['day_before_ex_date'] = dividend_frame.ex_date - trading_day
+        dividend_frame = dividend_frame.set_index(['day_before_ex_date', 'sid'])
+        dividend_frame['close_price'] = close_prices[dividend_frame.index]
+        dividend_frame['multiplier'] = 1 - (dividend_frame.gross_amount/dividend_frame.close_price)
+        self.dividend_multiplier_frame = dividend_frame
+
+    def calculate_dividend_multiplier(self,
+                                      close_price_day_before_ex_date,
+                                      dividend_amt):
+        """
+        Calculate the dividend multiplier as a percentage of the price,
+        primarily to avoid negative historical pricing. 
+
+        dividend_multiplier = 1 - (dividend_amt/close_price)
+
+        For example, when a $0.08 cash dividend is distributed on
+        Feb 19 (ex- date), and the Feb 18 closing price is $24.96, the
+        pre-dividend data is multiplied by (1-0.08/24.96) = 0.9968.
+
+        https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
+        """
+        return 1 - (dividend_amt/close_price_day_before_ex_date)
+
 
     def update_digest_panels(self, algo_dt, buffer_panel, freq_filter=None):
         """
@@ -941,63 +979,25 @@ class HistoryContainer(object):
                                                    columns=self.sids)
 
         if do_dividend_adjust:
-            # return the non adjusted price if there are no dividends
-            if self.dividend_frame.empty:
-                return history_output
+            dividends = self.dividend_multiplier_frame[
+                (self.dividend_multiplier_frame.ex_date > history_output.index[0]) &
+                (self.dividend_multiplier_frame.ex_date < algo_dt)
+            ]
 
-            for security_object in history_output.columns.values:
-                dividends = get_dividends_for_security(self.dividend_frame,
-                                                       security_object,
-                                                       algo_dt)
+            for dividend in dividends.iterrows():
+                security_object = dividend[0][1]
+                ex_date = dividend[1].ex_date
+                multiplier = dividend[1].multiplier
 
-                # if there are no dividends for this security, continue
-                if dividends.empty:
+                try:
+                    historical_prices = history_output[security_object]
+                    prices_to_adjust = historical_prices[historical_prices.index < ex_date]
+                    adjusted_prices = prices_to_adjust * multiplier
+                    history_output[security_object].update(adjusted_prices)
+                except:
                     continue
 
-                # get the pricing for this security
-                pricing = history_output[security_object]
-                adjusted_pricing = pricing
-
-                for dividend in dividends.iterrows():
-                    ex_date = dividend[1]['ex_date']
-                    dividend_amt = dividend[1]['gross_amount']
-                    prices_to_adjust = pricing[pricing.index < ex_date]
-
-                    if prices_to_adjust.empty:
-                        continue
-
-                    close_price_day_before_ex_date = prices_to_adjust.iloc[-1]
-                    dividend_multiplier = \
-                        get_dividend_multiplier(close_price_day_before_ex_date,
-                                                dividend_amt)
-                    prices_to_adjust = prices_to_adjust * dividend_multiplier
-                    adjusted_pricing.update(prices_to_adjust)
-
-                history_output[security_object] = adjusted_pricing
-
         return history_output
-
-
-def get_dividends_for_security(dividend_frame, security_object, algo_dt):
-    # try to get the dividends for this security
-    try:
-        dividends = dividend_frame.loc[security_object]
-    # if no dividends exist for this security, return an empty data frame
-    except:
-        return pd.DataFrame()
-
-    # filter dividends to include only the ones that are paid before the
-    # current algo date time.
-    dividends = dividends[dividends['ex_date'] < algo_dt]
-    # reverse the order so the newest dividend is first
-    dividends = dividends.iloc[::-1]
-
-    return dividends
-
-
-def get_dividend_multiplier(close_price_day_before_ex_date,
-                            dividend_amt):
-    return 1 - (dividend_amt/close_price_day_before_ex_date)
 
 
 def fast_build_history_output(buffer_frame,

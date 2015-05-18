@@ -922,11 +922,14 @@ class TradingAlgorithm(object):
 
         self.dividend_frame = pd.concat(
             [self.dividend_frame, new_dividends]
-        ).sort(['pay_date', 'ex_date']).set_index('id', drop=False, append=True)
+        ).sort(['pay_date', 'ex_date']).set_index('id', drop=False)
 
         self.perf_tracker.update_dividends(self.dividend_frame)
         if self.history_container:
-            self.history_container.update_dividends(self.dividend_frame)
+            self.history_container.update_dividend_multipliers(
+                self.dividend_frame,
+                self.sim_params.last_close
+            )
 
     @api_method
     def set_slippage(self, slippage):
@@ -1104,7 +1107,10 @@ class TradingAlgorithm(object):
                     bar_data=self._most_recent_data,
                 )
 
-            self.history_container.update_dividends(self.dividend_frame)
+            self.history_container.update_dividend_multipliers(
+                self.dividend_frame,
+                self.sim_params.last_close
+            )
             self.history_container.ensure_spec(
                 spec, self.datetime, self._most_recent_data,
             )
