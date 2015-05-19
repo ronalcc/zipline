@@ -24,6 +24,7 @@ from six import itervalues, iteritems, iterkeys
 from . history import HistorySpec
 
 from qexec.sources.ohlcv_panel import ohlcv_panel_from_source
+from qexec.utils.memoize import memoize
 
 from zipline.utils.tradingcalendar import trading_day
 from zipline.finance.trading import with_environment
@@ -767,14 +768,9 @@ class HistoryContainer(object):
         dividend_frame['day_before_ex_date'] = dividend_frame.ex_date - trading_day
         dividend_frame = dividend_frame.set_index(['day_before_ex_date', 'sid'])
         dividend_frame['close_price'] = close_prices[dividend_frame.index]
-        dividend_frame['multiplier'] = 1 - (dividend_frame.gross_amount/dividend_frame.close_price)
-        self.dividend_multiplier_frame = dividend_frame
 
-    def calculate_dividend_multiplier(self,
-                                      close_price_day_before_ex_date,
-                                      dividend_amt):
         """
-        Calculate the dividend multiplier as a percentage of the price,
+        Calculate the dividend multiplier as a percentage of the close price,
         primarily to avoid negative historical pricing. 
 
         dividend_multiplier = 1 - (dividend_amt/close_price)
@@ -785,8 +781,8 @@ class HistoryContainer(object):
 
         https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
         """
-        return 1 - (dividend_amt/close_price_day_before_ex_date)
-
+        dividend_frame['multiplier'] = 1 - (dividend_frame.gross_amount/dividend_frame.close_price)
+        self.dividend_multiplier_frame = dividend_frame
 
     def update_digest_panels(self, algo_dt, buffer_panel, freq_filter=None):
         """
@@ -979,10 +975,26 @@ class HistoryContainer(object):
                                                    columns=self.sids)
 
         if do_dividend_adjust:
-            dividends = self.dividend_multiplier_frame[
-                (self.dividend_multiplier_frame.ex_date > history_output.index[0]) &
-                (self.dividend_multiplier_frame.ex_date < algo_dt)
-            ]
+            #memoization function lru caches 
+
+            # way to cache the results of a function . when you have a dictionary as a cache. keys of cache = parameters of the function
+            # paramters (history_output.index[0] and algo_dt.date
+            # dividends will be cached for the entire day. 
+            # from nose.tools import set_trace; set_trace()
+            # dividends = self.dividend_multiplier_frame[
+            #     (self.dividend_multiplier_frame.ex_date > history_output.index[0]) &
+            #     (self.dividend_multiplier_frame.ex_date < algo_dt)
+            # ]
+
+
+            @memoize
+            def get_dividends(start_date, end_date):
+                return self.dividend_multiplier_frame[
+                    (self.dividend_multiplier_frame.ex_date > pd.Timestamp(start_date).tz_localize('UTC')) &
+                    (self.dividend_multiplier_frame.ex_date < pd.Timestamp(end_date).tz_localize('UTC'))
+                ]
+
+            dividends = get_dividends(history_output.index[0].date(), algo_dt.date())
 
             for dividend in dividends.iterrows():
                 security_object = dividend[0][1]
@@ -994,7 +1006,8 @@ class HistoryContainer(object):
                     prices_to_adjust = historical_prices[historical_prices.index < ex_date]
                     adjusted_prices = prices_to_adjust * multiplier
                     history_output[security_object].update(adjusted_prices)
-                except:
+                except KeyError, e:
+                    # the history output does not contain this security
                     continue
 
         return history_output
