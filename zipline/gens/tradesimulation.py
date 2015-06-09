@@ -368,12 +368,12 @@ class AlgorithmSimulator(object):
         rvars = self.algo.recorded_vars
         if self.algo.perf_tracker.emission_rate == 'daily':
             perf_message = \
-                self.algo.perf_tracker.handle_market_close_daily()
+                self.algo.perf_tracker.handle_market_close_daily(self.algo.history_container)
             perf_message['daily_perf']['recorded_vars'] = rvars
             return perf_message
 
         elif self.algo.perf_tracker.emission_rate == 'minute':
-            self.algo.perf_tracker.handle_minute_close(dt)
+            self.algo.perf_tracker.handle_minute_close(dt, self.algo.history_container)
             perf_message = self.algo.perf_tracker.to_dict()
             perf_message['minute_perf']['recorded_vars'] = rvars
             return perf_message

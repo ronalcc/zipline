@@ -340,7 +340,7 @@ class SIDData(object):
         return "SIDData({0})".format(self.__dict__)
 
     def _get_buffer(self, bars, field='price', raw=False,
-                    dividend_adjusted=False):
+                    adjusted=False):
         """
         Gets the result of history for the given number of bars and field.
 
@@ -363,7 +363,7 @@ class SIDData(object):
             # then we need to get more history.
             hst = algo.history(
                 bars, self._freqstr, field, ffill=True,
-                dividend_adjusted=dividend_adjusted,
+                adjusted=adjusted,
             )
             # Assert that the column holds ints, not security objects.
             if not isinstance(self._sid, str):
@@ -449,21 +449,21 @@ class SIDData(object):
         bars = self._get_bars(days)
         max_bars = self._get_max_bars(days)
         prices = self._get_buffer(max_bars, raw=True,
-                                  dividend_adjusted=True)[-bars:]
+                                  adjusted=True)[-bars:]
         return nanmean(prices)
 
     def stddev(self, days):
         bars = self._get_bars(days)
         max_bars = self._get_max_bars(days)
         prices = self._get_buffer(max_bars, raw=True,
-                                  dividend_adjusted=True)[-bars:]
+                                  adjusted=True)[-bars:]
         return nanstd(prices, ddof=1)
 
     def vwap(self, days):
         bars = self._get_bars(days)
         max_bars = self._get_max_bars(days)
         prices = self._get_buffer(max_bars, raw=True,
-                                  dividend_adjusted=True)[-bars:]
+                                  adjusted=True)[-bars:]
         vols = self._get_buffer(max_bars, field='volume', raw=True)[-bars:]
 
         vol_sum = nansum(vols)
@@ -481,7 +481,7 @@ class SIDData(object):
         if now != self._returns_cache_dt:
             self._returns_cache_dt = now
             self._returns_cache = algo.history(2, '1d', 'price', ffill=True,
-                                               dividend_adjusted=True)
+                                               adjusted=True)
 
         hst = self._returns_cache[self._sid]
         return (hst.iloc[-1] - hst.iloc[0]) / hst.iloc[0]

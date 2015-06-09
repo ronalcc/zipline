@@ -23,9 +23,6 @@ from six import itervalues, iteritems, iterkeys
 
 from . history import HistorySpec
 
-from qexec.sources.ohlcv_panel import ohlcv_panel_from_source
-from qexec.utils.memoize import memoize
-
 from zipline.utils.tradingcalendar import trading_day
 from zipline.finance.trading import with_environment
 from zipline.utils.data import RollingPanel, _ensure_index
@@ -205,6 +202,8 @@ class HistoryContainer(object):
     """
     VALID_FIELDS = {
         'price', 'open_price', 'volume', 'high', 'low', 'close_price',
+        'adjusted_price', 'adjusted_open_price', 'adjusted_volume', 'adjusted_high',
+        'adjusted_low', 'adjusted_close_price',
     }
 
     def __init__(self,
@@ -241,7 +240,13 @@ class HistoryContainer(object):
 
         # The set of fields specified by all history specs
         self.fields = pd.Index(
-            sorted(set(spec.field for spec in itervalues(history_specs)))
+            sorted(set(spec.field_name for spec in itervalues(history_specs)))
+        )
+        self.data_fields = pd.Index(
+            sorted(set(
+                [field[9:] for field in self.fields.values if
+                 field.startswith('adjusted_')]
+            ))
         )
         self.sids = pd.Index(
             sorted(set(initial_sids or []))
@@ -256,8 +261,6 @@ class HistoryContainer(object):
         # digested using some sort of aggregation call on the panel (e.g. `sum`
         # for volume, `max` for high, `min` for low, etc.).
         self.buffer_panel = self.create_buffer_panel(initial_dt, bar_data)
-
-        self.dividend_multiplier_frame = pd.DataFrame()
 
         # Dictionaries with Frequency objects as keys.
         self.digest_panels, self.cur_window_starts, self.cur_window_closes = \
@@ -526,8 +529,11 @@ class HistoryContainer(object):
         HistorySpec.
         """
         updated = {}
-        if spec.field not in self.fields:
-            updated['field'] = self._add_field(spec.field)
+
+        field = spec.field_name
+        if field not in self.fields:
+            from nose.tools import set_trace; set_trace()
+            updated['field'] = self._add_field(field)
         if spec.frequency not in self.largest_specs:
             updated['frequency_delta'] = self._add_frequency(
                 spec, dt, bar_data,
@@ -657,7 +663,7 @@ class HistoryContainer(object):
             res = pd.DataFrame(index=[], columns=self.sids, dtype=float)
             return res.values, res.index
 
-        field = history_spec.field
+        field = history_spec.field_name
 
         # Panel axes are (field, dates, sids).  We want just the entries for
         # the requested field, the last (bar_count - 1) data points, and all
@@ -671,7 +677,7 @@ class HistoryContainer(object):
             # stock has a gap in its price history.
             filled = ffill_digest_frame_from_prior_values(
                 history_spec.frequency,
-                history_spec.field,
+                history_spec.field_name,
                 frame,
                 self.last_known_prior_values,
                 raw=True
@@ -727,6 +733,9 @@ class HistoryContainer(object):
             if algo_dt != sid_data['dt']:
                 continue
             for i, field in enumerate(self.fields):
+                # remove the 'adjusted_' prefix before fetching data
+                if field.startswith('adjusted_'):
+                    field = field[9:]
                 frame_data[i, j] = sid_data.get(field, np.nan)
 
         return pd.DataFrame(
@@ -745,44 +754,6 @@ class HistoryContainer(object):
         self.update_last_known_values()
         self.update_digest_panels(algo_dt, self.buffer_panel)
         self.buffer_panel.add_frame(algo_dt, frame)
-
-    def update_dividend_multipliers(self, dividend_frame, last_close_dt):
-        """
-        Calculate the dividend_multiplier_frame from the dividend_frame.
-        """
-        if dividend_frame.empty:
-            self.dividend_multiplier_frame = pd.DataFrame()
-            return
-
-        ohlcv_data = ohlcv_panel_from_source(
-            # no good - need to get the data from somewhere else
-            self.backfill_source_dispatch,
-            self.sids,
-            start_date=pd.Timestamp('2002-01-01 00:00:00+0000', tz='UTC'),
-            end_date=last_close_dt,
-            data_frequency='daily',
-        )
-
-        close_prices = ohlcv_data['close_price']
-        close_prices = close_prices.unstack().swaplevel(0,1)
-        dividend_frame['day_before_ex_date'] = dividend_frame.ex_date - trading_day
-        dividend_frame = dividend_frame.set_index(['day_before_ex_date', 'sid'])
-        dividend_frame['close_price'] = close_prices[dividend_frame.index]
-
-        """
-        Calculate the dividend multiplier as a percentage of the close price,
-        primarily to avoid negative historical pricing. 
-
-        dividend_multiplier = 1 - (dividend_amt/close_price)
-
-        For example, when a $0.08 cash dividend is distributed on
-        Feb 19 (ex- date), and the Feb 18 closing price is $24.96, the
-        pre-dividend data is multiplied by (1-0.08/24.96) = 0.9968.
-
-        https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
-        """
-        dividend_frame['multiplier'] = 1 - (dividend_frame.gross_amount/dividend_frame.close_price)
-        self.dividend_multiplier_frame = dividend_frame
 
     def update_digest_panels(self, algo_dt, buffer_panel, freq_filter=None):
         """
@@ -850,19 +821,20 @@ class HistoryContainer(object):
                 index=columns,
             ).values
 
-        if field in ['price', 'close_price']:
+        if field in ['price', 'close_price', 'adjusted_price', 'adjusted_close_price']:
             # shortcircuit for full last row
             vals = frame[-1]
             if np.all(~np.isnan(vals)):
                 return vals
+
             return ffill(frame)[-1]
-        elif field == 'open_price':
+        elif field in ['open_price', 'adjusted_open_price']:
             return bfill(frame)[0]
-        elif field == 'volume':
+        elif field in ['volume', 'adjusted_volume']:
             return np.nansum(frame, axis=0)
-        elif field == 'high':
+        elif field in ['high', 'adjusted_high']:
             return np.nanmax(frame, axis=0)
-        elif field == 'low':
+        elif field in ['low', 'adjusted_low']:
             return np.nanmin(frame, axis=0)
         else:
             raise ValueError("Unknown field {}".format(field))
@@ -932,6 +904,10 @@ class HistoryContainer(object):
                     key_loc, non_nan_sids
                 ] = field_vals[non_nan_sids]
 
+    def adjust_history(self, dividends_earnable):
+        for panel in self.all_panels:
+            panel.adjust_data(dividends_earnable)
+
     def get_history(self, history_spec, algo_dt):
         """
         Main API used by the algoscript is mapped to this function.
@@ -939,12 +915,8 @@ class HistoryContainer(object):
         Selects from the overarching history panel the values for the
         @history_spec at the given @algo_dt.
         """
-        field = history_spec.field
+        field = history_spec.field_name
         do_ffill = history_spec.ffill
-        do_dividend_adjust = history_spec.dividend_adjusted
-
-        if field == 'volume':
-            do_dividend_adjust = False
 
         # Get our stored values from periods prior to the current period.
         digest_frame, index = self.digest_bars(history_spec, do_ffill)
@@ -973,45 +945,7 @@ class HistoryContainer(object):
                                                    algo_dt,
                                                    index=index,
                                                    columns=self.sids)
-
-        if do_dividend_adjust:
-            #memoization function lru caches 
-
-            # way to cache the results of a function . when you have a dictionary as a cache. keys of cache = parameters of the function
-            # paramters (history_output.index[0] and algo_dt.date
-            # dividends will be cached for the entire day. 
-            # from nose.tools import set_trace; set_trace()
-            # dividends = self.dividend_multiplier_frame[
-            #     (self.dividend_multiplier_frame.ex_date > history_output.index[0]) &
-            #     (self.dividend_multiplier_frame.ex_date < algo_dt)
-            # ]
-
-
-            @memoize
-            def get_dividends(start_date, end_date):
-                return self.dividend_multiplier_frame[
-                    (self.dividend_multiplier_frame.ex_date > pd.Timestamp(start_date).tz_localize('UTC')) &
-                    (self.dividend_multiplier_frame.ex_date < pd.Timestamp(end_date).tz_localize('UTC'))
-                ]
-
-            dividends = get_dividends(history_output.index[0].date(), algo_dt.date())
-
-            for dividend in dividends.iterrows():
-                security_object = dividend[0][1]
-                ex_date = dividend[1].ex_date
-                multiplier = dividend[1].multiplier
-
-                try:
-                    historical_prices = history_output[security_object]
-                    prices_to_adjust = historical_prices[historical_prices.index < ex_date]
-                    adjusted_prices = prices_to_adjust * multiplier
-                    history_output[security_object].update(adjusted_prices)
-                except KeyError, e:
-                    # the history output does not contain this security
-                    continue
-
         return history_output
-
 
 def fast_build_history_output(buffer_frame,
                               last_period,
@@ -1043,7 +977,6 @@ def fast_build_history_output(buffer_frame,
         ),
         columns=columns,
     )
-
 
 def fast_append_date_to_index(index, timestamp):
     """

@@ -67,6 +67,7 @@ class RollingPanel(object):
             )
 
         self.buffer = self._create_buffer()
+        self.daily_close_prices = pd.DataFrame()
 
     @property
     def cap(self):
@@ -223,6 +224,44 @@ class RollingPanel(object):
         where = slice(self._start_index, self._pos)
         self.buffer.values[:, where, :] = panel.values
 
+    def adjust_data(self, dividends):
+        # if we do not have daily close prices do not adjust the data
+        if self.daily_close_prices.empty:
+            return
+
+        # only adjust the fields that start with 'adjusted_'
+        fields_to_adjust = [field for field in self.buffer.items.values if
+                  field.startswith('adjusted_')]
+        for field in fields_to_adjust:
+            # if field == 'adjusted_volume':
+            #     return
+            # adjust the data in the buffer
+            df_to_adjust = self.buffer[field]
+            close_prices = self.daily_close_prices['close_price']
+            close_prices = close_prices.unstack().swaplevel(0,1)
+            from nose.tools import set_trace; set_trace()
+
+
+        # close_prices = ohlcv_data['close_price']
+        # close_prices = close_prices.unstack().swaplevel(0,1)
+        # dividend_frame['day_before_ex_date'] = dividend_frame.ex_date - trading_day
+        # dividend_frame = dividend_frame.set_index(['day_before_ex_date', 'sid'])
+        # dividend_frame['close_price'] = close_prices[dividend_frame.index]
+
+        # """
+        # Calculate the dividend multiplier as a percentage of the close price,
+        # primarily to avoid negative historical pricing. 
+
+        # dividend_multiplier = 1 - (dividend_amt/close_price)
+
+        # For example, when a $0.08 cash dividend is distributed on
+        # Feb 19 (ex- date), and the Feb 18 closing price is $24.96, the
+        # pre-dividend data is multiplied by (1-0.08/24.96) = 0.9968.
+
+        # https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
+        # """
+        # dividend_frame['multiplier'] = 1 - (dividend_frame.gross_amount/dividend_frame.close_price)
+
     def current_dates(self):
         where = slice(self._start_index, self._pos)
         return pd.DatetimeIndex(deepcopy(self.date_buf[where]), tz='utc')
@@ -348,7 +387,6 @@ class MutableIndexRollingPanel(object):
         self._pos += 1
 
     def _update_buffer(self, frame):
-
         # Get current frame as we only need to care about the data that is in
         # the active window
         old_buffer = self.get_current()

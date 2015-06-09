@@ -925,11 +925,6 @@ class TradingAlgorithm(object):
         ).sort(['pay_date', 'ex_date']).set_index('id', drop=False)
 
         self.perf_tracker.update_dividends(self.dividend_frame)
-        if self.history_container:
-            self.history_container.update_dividend_multipliers(
-                self.dividend_frame,
-                self.sim_params.last_close
-            )
 
     @api_method
     def set_slippage(self, slippage):
@@ -1064,10 +1059,10 @@ class TradingAlgorithm(object):
 
     @api_method
     def add_history(self, bar_count, frequency, field, ffill=True,
-                    dividend_adjusted=False):
+                    adjusted=False):
         data_frequency = self.sim_params.data_frequency
         history_spec = HistorySpec(bar_count, frequency, field,
-                                   ffill, dividend_adjusted,
+                                   ffill, adjusted,
                                    data_frequency=data_frequency)
         self.history_specs[history_spec.key_str] = history_spec
         if self.initialized:
@@ -1084,9 +1079,9 @@ class TradingAlgorithm(object):
                 )
 
     def get_history_spec(self, bar_count, frequency, field, ffill,
-                         dividend_adjusted):
+                         adjusted):
         spec_key = HistorySpec.spec_key(bar_count, frequency, field,
-                                        ffill, dividend_adjusted)
+                                        ffill, adjusted)
         if spec_key not in self.history_specs:
             data_freq = self.sim_params.data_frequency
             spec = HistorySpec(
@@ -1094,11 +1089,15 @@ class TradingAlgorithm(object):
                 frequency,
                 field,
                 ffill,
-                dividend_adjusted,
+                adjusted,
                 data_frequency=data_freq,
             )
             self.history_specs[spec_key] = spec
-            if not self.history_container:
+            if self.history_container:
+                self.history_container.ensure_spec(
+                    spec, self.datetime, self._most_recent_data,
+                )
+            else:
                 self.history_container = self.history_container_class(
                     self.history_specs,
                     self.current_universe(),
@@ -1107,24 +1106,17 @@ class TradingAlgorithm(object):
                     bar_data=self._most_recent_data,
                 )
 
-            self.history_container.update_dividend_multipliers(
-                self.dividend_frame,
-                self.sim_params.last_close
-            )
-            self.history_container.ensure_spec(
-                spec, self.datetime, self._most_recent_data,
-            )
         return self.history_specs[spec_key]
 
     @api_method
     def history(self, bar_count, frequency, field, ffill=True,
-                dividend_adjusted=False):
+                adjusted=False):
         history_spec = self.get_history_spec(
             bar_count,
             frequency,
             field,
             ffill,
-            dividend_adjusted,
+            adjusted,
         )
         return self.history_container.get_history(history_spec, self.datetime)
 
