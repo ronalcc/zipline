@@ -532,7 +532,6 @@ class HistoryContainer(object):
 
         field = spec.field_name
         if field not in self.fields:
-            from nose.tools import set_trace; set_trace()
             updated['field'] = self._add_field(field)
         if spec.frequency not in self.largest_specs:
             updated['frequency_delta'] = self._add_frequency(

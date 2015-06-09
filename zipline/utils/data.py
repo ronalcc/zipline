@@ -225,21 +225,61 @@ class RollingPanel(object):
         self.buffer.values[:, where, :] = panel.values
 
     def adjust_data(self, dividends):
-        # if we do not have daily close prices do not adjust the data
+        # if we do not have daily close prices, do not adjust the data
         if self.daily_close_prices.empty:
             return
 
-        # only adjust the fields that start with 'adjusted_'
-        fields_to_adjust = [field for field in self.buffer.items.values if
-                  field.startswith('adjusted_')]
+        history_buffer = self.buffer.reindex_axis(self.date_buf, 'major_axis')
+
+        # adjust all fields that start with 'adjusted_' except for
+        # 'adjusted_volume'
+        fields_to_adjust = [field for field in history_buffer.items.values if \
+            (field.startswith('adjusted_') and field != 'adjusted_volume')]
         for field in fields_to_adjust:
-            # if field == 'adjusted_volume':
-            #     return
             # adjust the data in the buffer
-            df_to_adjust = self.buffer[field]
+            df_to_adjust = history_buffer[field]
             close_prices = self.daily_close_prices['close_price']
             close_prices = close_prices.unstack().swaplevel(0,1)
-            from nose.tools import set_trace; set_trace()
+
+            # digest_frame, index = self.digest_bars(history_spec, do_ffill)
+
+     # def digest_bars(self, history_spec, do_ffill):
+     #    """
+     #    Get the last (history_spec.bar_count - 1) bars from self.digest_panel
+     #    for the requested HistorySpec.
+     #    """
+     #    bar_count = history_spec.bar_count
+     #    if bar_count == 1:
+     #        # slicing with [1 - bar_count:] doesn't work when bar_count == 1,
+     #        # so special-casing this.
+     #        res = pd.DataFrame(index=[], columns=self.sids, dtype=float)
+     #        return res.values, res.index
+
+     #    field = history_spec.field_name
+
+     #    # Panel axes are (field, dates, sids).  We want just the entries for
+     #    # the requested field, the last (bar_count - 1) data points, and all
+     #    # sids.
+     #    digest_panel = self.digest_panels[history_spec.frequency]
+     #    frame = digest_panel.get_current(field, raw=True)
+
+     #    if do_ffill:
+     #        # Do forward-filling *before* truncating down to the requested
+     #        # number of bars.  This protects us from losing data if an illiquid
+     #        # stock has a gap in its price history.
+     #        filled = ffill_digest_frame_from_prior_values(
+     #            history_spec.frequency,
+     #            history_spec.field_name,
+     #            frame,
+     #            self.last_known_prior_values,
+     #            raw=True
+     #            # Truncate only after we've forward-filled
+     #        )
+     #        indexer = slice(1 - bar_count, None)
+     #        return filled[indexer], digest_panel.current_dates()[indexer]
+     #    else:
+     #        indexer = slice(1 - bar_count, None)
+     #        return frame[indexer, :], digest_panel.current_dates()[indexer]
 
 
         # close_prices = ohlcv_data['close_price']
