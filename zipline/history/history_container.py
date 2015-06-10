@@ -211,6 +211,7 @@ class HistoryContainer(object):
                  initial_sids,
                  initial_dt,
                  data_frequency,
+                 sim_end_date,
                  bar_data=None):
         """
         A container to hold a rolling window of historical data within a user's
@@ -253,6 +254,7 @@ class HistoryContainer(object):
         )
 
         self.data_frequency = data_frequency
+        self.end_date = sim_end_date
 
         initial_dt = normalize_to_data_freq(self.data_frequency, initial_dt)
 

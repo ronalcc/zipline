@@ -522,6 +522,7 @@ class TradingAlgorithm(object):
                 self.current_universe(),
                 self.sim_params.first_open,
                 self.sim_params.data_frequency,
+                self.sim_params.last_close,
             )
 
         # loop through simulated_trading, each iteration returns a
@@ -1076,6 +1077,7 @@ class TradingAlgorithm(object):
                     self.current_universe(),
                     self.sim_params.first_open,
                     self.sim_params.data_frequency,
+                    self.sim_params.last_close,
                 )
 
     def get_history_spec(self, bar_count, frequency, field, ffill,
@@ -1103,6 +1105,7 @@ class TradingAlgorithm(object):
                     self.current_universe(),
                     self.datetime,
                     self.sim_params.data_frequency,
+                    self.sim_params.last_close,
                     bar_data=self._most_recent_data,
                 )
 

@@ -247,9 +247,14 @@ class RollingPanel(object):
         dividends['day_before_ex_date'] = dividends.ex_date - trading_day
         dividends = dividends.set_index(['day_before_ex_date', 'sid'])
         dividends['close_price'] = close_prices[dividends.index]
-        dividends['multiplier'] = 1 - (dividends.gross_amount/dividends.close_price)
+        dividends['multiplier'] = 1 - \
+            (dividends.gross_amount/dividends.close_price)
 
-        history_buffer = self.buffer.reindex_axis(self.date_buf, 'major_axis')
+        # overwrite the history index with dates so we can apply dividends.
+        # save the original index so we can put it back later
+        int_index = self.buffer.copy().major_axis
+        history_buffer = self.buffer
+        history_buffer.major_axis = self.date_buf
 
         # adjust all fields that start with 'adjusted_' except for
         # 'adjusted_volume'
@@ -263,10 +268,14 @@ class RollingPanel(object):
                 ex_date = dividend[1].ex_date
                 multiplier = dividend[1].multiplier
 
-                historical_prices = df_to_adjust.loc[security_object]
-                prices_to_adjust = historical_prices[historical_prices.index < ex_date]
+                historical_prices = df_to_adjust[security_object]
+                prices_to_adjust = \
+                    historical_prices[historical_prices.index < ex_date]
                 adjusted_prices = prices_to_adjust * multiplier
-                self.buffer.loc[field, security_object].update(adjusted_prices)
+                history_buffer[field][security_object].update(adjusted_prices)
+
+        # put back the original index on the buffer  
+        history_buffer.major_axis = int_index
 
     def current_dates(self):
         where = slice(self._start_index, self._pos)
