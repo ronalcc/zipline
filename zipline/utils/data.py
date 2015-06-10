@@ -18,6 +18,7 @@ import datetime
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from zipline.utils.tradingcalendar import trading_day
 
 
 def _ensure_index(x):
@@ -229,6 +230,25 @@ class RollingPanel(object):
         if self.daily_close_prices.empty:
             return
 
+        """
+        Calculate the dividend multiplier as a percentage of the close price,
+        primarily to avoid negative historical pricing. 
+
+        dividend_multiplier = 1 - (dividend_amt/close_price)
+
+        For example, when a $0.08 cash dividend is distributed on
+        Feb 19 (ex- date), and the Feb 18 closing price is $24.96, the
+        pre-dividend data is multiplied by (1-0.08/24.96) = 0.9968.
+
+        https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
+        """
+        close_prices = self.daily_close_prices['close_price']
+        close_prices = close_prices.unstack().swaplevel(0,1)
+        dividends['day_before_ex_date'] = dividends.ex_date - trading_day
+        dividends = dividends.set_index(['day_before_ex_date', 'sid'])
+        dividends['close_price'] = close_prices[dividends.index]
+        dividends['multiplier'] = 1 - (dividends.gross_amount/dividends.close_price)
+
         history_buffer = self.buffer.reindex_axis(self.date_buf, 'major_axis')
 
         # adjust all fields that start with 'adjusted_' except for
@@ -238,69 +258,15 @@ class RollingPanel(object):
         for field in fields_to_adjust:
             # adjust the data in the buffer
             df_to_adjust = history_buffer[field]
-            close_prices = self.daily_close_prices['close_price']
-            close_prices = close_prices.unstack().swaplevel(0,1)
+            for dividend in dividends.iterrows():
+                security_object = dividend[0][1]
+                ex_date = dividend[1].ex_date
+                multiplier = dividend[1].multiplier
 
-            # digest_frame, index = self.digest_bars(history_spec, do_ffill)
-
-     # def digest_bars(self, history_spec, do_ffill):
-     #    """
-     #    Get the last (history_spec.bar_count - 1) bars from self.digest_panel
-     #    for the requested HistorySpec.
-     #    """
-     #    bar_count = history_spec.bar_count
-     #    if bar_count == 1:
-     #        # slicing with [1 - bar_count:] doesn't work when bar_count == 1,
-     #        # so special-casing this.
-     #        res = pd.DataFrame(index=[], columns=self.sids, dtype=float)
-     #        return res.values, res.index
-
-     #    field = history_spec.field_name
-
-     #    # Panel axes are (field, dates, sids).  We want just the entries for
-     #    # the requested field, the last (bar_count - 1) data points, and all
-     #    # sids.
-     #    digest_panel = self.digest_panels[history_spec.frequency]
-     #    frame = digest_panel.get_current(field, raw=True)
-
-     #    if do_ffill:
-     #        # Do forward-filling *before* truncating down to the requested
-     #        # number of bars.  This protects us from losing data if an illiquid
-     #        # stock has a gap in its price history.
-     #        filled = ffill_digest_frame_from_prior_values(
-     #            history_spec.frequency,
-     #            history_spec.field_name,
-     #            frame,
-     #            self.last_known_prior_values,
-     #            raw=True
-     #            # Truncate only after we've forward-filled
-     #        )
-     #        indexer = slice(1 - bar_count, None)
-     #        return filled[indexer], digest_panel.current_dates()[indexer]
-     #    else:
-     #        indexer = slice(1 - bar_count, None)
-     #        return frame[indexer, :], digest_panel.current_dates()[indexer]
-
-
-        # close_prices = ohlcv_data['close_price']
-        # close_prices = close_prices.unstack().swaplevel(0,1)
-        # dividend_frame['day_before_ex_date'] = dividend_frame.ex_date - trading_day
-        # dividend_frame = dividend_frame.set_index(['day_before_ex_date', 'sid'])
-        # dividend_frame['close_price'] = close_prices[dividend_frame.index]
-
-        # """
-        # Calculate the dividend multiplier as a percentage of the close price,
-        # primarily to avoid negative historical pricing. 
-
-        # dividend_multiplier = 1 - (dividend_amt/close_price)
-
-        # For example, when a $0.08 cash dividend is distributed on
-        # Feb 19 (ex- date), and the Feb 18 closing price is $24.96, the
-        # pre-dividend data is multiplied by (1-0.08/24.96) = 0.9968.
-
-        # https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
-        # """
-        # dividend_frame['multiplier'] = 1 - (dividend_frame.gross_amount/dividend_frame.close_price)
+                historical_prices = df_to_adjust.loc[security_object]
+                prices_to_adjust = historical_prices[historical_prices.index < ex_date]
+                adjusted_prices = prices_to_adjust * multiplier
+                self.buffer.loc[field, security_object].update(adjusted_prices)
 
     def current_dates(self):
         where = slice(self._start_index, self._pos)
