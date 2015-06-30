@@ -272,7 +272,8 @@ class RollingPanel(object):
                 prices_to_adjust = \
                     historical_prices[historical_prices.index < ex_date]
                 adjusted_prices = prices_to_adjust * multiplier
-                history_buffer[field][security_object].update(adjusted_prices)
+
+                history_buffer.loc[field, :, security_object].update(adjusted_prices)
 
         # put back the original index on the buffer  
         history_buffer.major_axis = int_index
@@ -286,7 +287,6 @@ class RollingPanel(object):
         Roll window worth of data up to position zero.
         Save the effort of having to expensively roll at each iteration
         """
-
         self.buffer.values[:, :self._window, :] = \
             self.buffer.values[:, -self._window:, :]
         self.date_buf[:self._window] = self.date_buf[-self._window:]
@@ -351,7 +351,6 @@ class MutableIndexRollingPanel(object):
         Get a Panel that is the current data in view. It is not safe to persist
         these objects because internal data might change
         """
-
         where = slice(self._oldest_frame_idx(), self._pos)
         major_axis = pd.DatetimeIndex(deepcopy(self.date_buf[where]), tz='utc')
         return pd.Panel(self.buffer.values[:, where, :], self.items,
@@ -375,7 +374,6 @@ class MutableIndexRollingPanel(object):
         Roll window worth of data up to position zero.
         Save the effort of having to expensively roll at each iteration
         """
-
         self.buffer.values[:, :self._window, :] = \
             self.buffer.values[:, -self._window:, :]
         self.date_buf[:self._window] = self.date_buf[-self._window:]

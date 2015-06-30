@@ -252,7 +252,7 @@ class HistorySpec(object):
     result frames.
     """
 
-    FORWARD_FILLABLE = frozenset({'price'})
+    FORWARD_FILLABLE = frozenset({'price', 'adjusted_price'})
 
     @classmethod
     def spec_key(cls, bar_count, freq_str, field, ffill, adjusted):
