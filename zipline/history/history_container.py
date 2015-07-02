@@ -267,6 +267,8 @@ class HistoryContainer(object):
         self.digest_panels, self.cur_window_starts, self.cur_window_closes = \
             self.create_digest_panels(initial_sids, initial_dt)
 
+        self.daily_close_prices = pd.DataFrame()
+
         # Helps prop up the prior day panel against having a nan, when the data
         # has been seen.
         self.last_known_prior_values = pd.DataFrame(
@@ -906,7 +908,7 @@ class HistoryContainer(object):
 
     def adjust_history(self, dividends_earnable):
         for panel in self.all_panels:
-            panel.adjust_data(dividends_earnable)
+            panel.adjust_data(dividends_earnable, self.daily_close_prices)
 
     def get_history(self, history_spec, algo_dt):
         """

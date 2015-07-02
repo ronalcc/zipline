@@ -68,7 +68,6 @@ class RollingPanel(object):
             )
 
         self.buffer = self._create_buffer()
-        self.daily_close_prices = pd.DataFrame()
 
     @property
     def cap(self):
@@ -225,9 +224,9 @@ class RollingPanel(object):
         where = slice(self._start_index, self._pos)
         self.buffer.values[:, where, :] = panel.values
 
-    def adjust_data(self, dividends):
+    def adjust_data(self, dividends, daily_close_prices):
         # if we do not have daily close prices, do not adjust the data
-        if self.daily_close_prices.empty:
+        if daily_close_prices.empty:
             return
 
         """
@@ -242,7 +241,7 @@ class RollingPanel(object):
 
         https://help.yahoo.com/kb/finance/historical-prices-sln2311.html
         """
-        close_prices = self.daily_close_prices['close_price']
+        close_prices = daily_close_prices['close_price']
         close_prices = close_prices.unstack().swaplevel(0,1)
         dividends['day_before_ex_date'] = dividends.ex_date - trading_day
         dividends = dividends.set_index(['day_before_ex_date', 'sid'])
@@ -273,7 +272,9 @@ class RollingPanel(object):
                     historical_prices[historical_prices.index < ex_date]
                 adjusted_prices = prices_to_adjust * multiplier
 
-                history_buffer.loc[field, :, security_object].update(adjusted_prices)
+                history_buffer.loc[field, :, security_object].update(
+                    adjusted_prices
+                )
 
         # put back the original index on the buffer  
         history_buffer.major_axis = int_index

@@ -370,7 +370,8 @@ class PerformanceTracker(object):
         position_tracker = self.position_tracker
         if len(dividends_earnable):
             position_tracker.earn_dividends(dividends_earnable)
-            history_container.adjust_history(dividends_earnable)
+            if history_container:
+                history_container.adjust_history(dividends_earnable)
 
         if not len(dividends_payable):
             return
