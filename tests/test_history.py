@@ -205,6 +205,7 @@ class TestHistoryContainer(TestCase):
 
         container = HistoryContainer(
             {spec.key_str: spec for spec in specs}, sids, dt, 'minute',
+            pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
         )
 
         for update_count, update in enumerate(updates):
@@ -250,7 +251,8 @@ class TestHistoryContainer(TestCase):
             '2013-06-28 9:31AM', tz='US/Eastern').tz_convert('UTC')
 
         container = HistoryContainer(
-            specs, initial_sids, initial_dt, 'minute'
+            specs, initial_sids, initial_dt, 'minute',
+            pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
         )
 
         bar_data = BarData()
@@ -293,7 +295,8 @@ class TestHistoryContainer(TestCase):
             '2013-06-28 9:31AM', tz='US/Eastern').tz_convert('UTC')
 
         container = HistoryContainer(
-            specs, initial_sids, initial_dt, 'minute'
+            specs, initial_sids, initial_dt, 'minute',
+            pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
         )
 
         bar_data = BarData()
@@ -1124,6 +1127,7 @@ class TestHistoryContainerResize(TestCase):
 
         container = HistoryContainer(
             specs, initial_sids, initial_dt, data_frequency,
+            pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
         )
 
         if construct_digest:
@@ -1192,6 +1196,7 @@ class TestHistoryContainerResize(TestCase):
 
         container = HistoryContainer(
             specs, initial_sids, initial_dt, data_frequency,
+            pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
         )
 
         if bar_count > 1:
@@ -1254,6 +1259,7 @@ class TestHistoryContainerResize(TestCase):
 
         container = HistoryContainer(
             specs, initial_sids, initial_dt, data_frequency,
+            pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
         )
 
         if bar_count > 1:

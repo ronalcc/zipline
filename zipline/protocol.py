@@ -449,21 +449,21 @@ class SIDData(object):
         bars = self._get_bars(days)
         max_bars = self._get_max_bars(days)
         prices = self._get_buffer(max_bars, raw=True,
-                                  adjusted=True)[-bars:]
+                                  adjusted=False)[-bars:]
         return nanmean(prices)
 
     def stddev(self, days):
         bars = self._get_bars(days)
         max_bars = self._get_max_bars(days)
         prices = self._get_buffer(max_bars, raw=True,
-                                  adjusted=True)[-bars:]
+                                  adjusted=False)[-bars:]
         return nanstd(prices, ddof=1)
 
     def vwap(self, days):
         bars = self._get_bars(days)
         max_bars = self._get_max_bars(days)
         prices = self._get_buffer(max_bars, raw=True,
-                                  adjusted=True)[-bars:]
+                                  adjusted=False)[-bars:]
         vols = self._get_buffer(max_bars, field='volume', raw=True)[-bars:]
 
         vol_sum = nansum(vols)
@@ -481,7 +481,7 @@ class SIDData(object):
         if now != self._returns_cache_dt:
             self._returns_cache_dt = now
             self._returns_cache = algo.history(2, '1d', 'price', ffill=True,
-                                               adjusted=True)
+                                               adjusted=False)
 
         hst = self._returns_cache[self._sid]
         return (hst.iloc[-1] - hst.iloc[0]) / hst.iloc[0]

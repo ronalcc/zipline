@@ -201,8 +201,6 @@ class HistoryContainer(object):
     """
     VALID_FIELDS = {
         'price', 'open_price', 'volume', 'high', 'low', 'close_price',
-        'adjusted_price', 'adjusted_open_price', 'adjusted_volume', 'adjusted_high',
-        'adjusted_low', 'adjusted_close_price',
     }
 
     def __init__(self,

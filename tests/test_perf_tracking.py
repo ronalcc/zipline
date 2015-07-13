@@ -40,6 +40,8 @@ from zipline.finance.slippage import Transaction, create_transaction
 import zipline.utils.math_utils as zp_math
 
 from zipline.gens.composites import date_sorted_sources
+from zipline.history import history
+from zipline.history.history_container import HistoryContainer
 from zipline.finance.trading import SimulationParameters
 from zipline.finance.blotter import Order
 from zipline.finance.commission import PerShare, PerTrade, PerDollar
@@ -233,7 +235,23 @@ def calculate_results(host,
             perf_tracker.process_split(split)
 
         if bm_updated:
-            msg = perf_tracker.handle_market_close_daily()
+            spec = history.HistorySpec(
+                bar_count=3,
+                frequency='1m',
+                field='price',
+                ffill=True,
+                adjusted=False,
+                data_frequency='minute'
+            )
+            specs = {spec.key_str: spec}
+            sids = [1, ]
+            dt = pd.Timestamp(
+                '2013-06-28 9:31AM', tz='US/Eastern').tz_convert('UTC')
+            history_container = HistoryContainer(
+                specs, sids, dt, 'minute',
+                pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
+            )
+            msg = perf_tracker.handle_market_close_daily(history_container)
             msg['account'] = perf_tracker.get_account(True)
             results.append(msg)
             bm_updated = False
@@ -1842,7 +1860,23 @@ class TestPerformanceTracker(unittest.TestCase):
                     perf_tracker.process_benchmark(event)
                 elif event.type == zp.DATASOURCE_TYPE.TRANSACTION:
                     perf_tracker.process_transaction(event)
-            msg = perf_tracker.handle_market_close_daily()
+            spec = history.HistorySpec(
+                bar_count=3,
+                frequency='1m',
+                field='price',
+                ffill=True,
+                adjusted=False,
+                data_frequency='minute'
+            )
+            specs = {spec.key_str: spec}
+            sids = [1, ]
+            dt = pd.Timestamp(
+                '2013-06-28 9:31AM', tz='US/Eastern').tz_convert('UTC')
+            history_container = HistoryContainer(
+                specs, sids, dt, 'minute',
+                pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
+            )
+            msg = perf_tracker.handle_market_close_daily(history_container)
             perf_messages.append(msg)
 
         self.assertEqual(perf_tracker.txn_count, len(txns))
@@ -1959,7 +1993,23 @@ class TestPerformanceTracker(unittest.TestCase):
                     tracker.process_order(event)
                 elif event.type == zp.DATASOURCE_TYPE.TRANSACTION:
                     tracker.process_transaction(event)
-            tracker.handle_minute_close(date)
+            spec = history.HistorySpec(
+                bar_count=3,
+                frequency='1m',
+                field='price',
+                ffill=True,
+                adjusted=False,
+                data_frequency='minute'
+            )
+            specs = {spec.key_str: spec}
+            sids = [1, ]
+            dt = pd.Timestamp(
+                '2013-06-28 9:31AM', tz='US/Eastern').tz_convert('UTC')
+            history_container = HistoryContainer(
+                specs, sids, dt, 'minute',
+                pd.Timestamp('2015-05-08 20:00:00+0000', tz='UTC'),
+            )
+            tracker.handle_minute_close(date, history_container)
             msg = tracker.to_dict()
             messages[date] = msg
 
