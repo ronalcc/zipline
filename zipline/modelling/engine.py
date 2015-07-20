@@ -5,9 +5,6 @@ from abc import (
     ABCMeta,
     abstractmethod,
 )
-from itertools import (
-    izip_longest,
-)
 from operator import and_
 from six import (
     iteritems,
@@ -16,6 +13,7 @@ from six import (
 from six.moves import (
     reduce,
     zip,
+    zip_longest,
 )
 
 from networkx import (
@@ -396,7 +394,7 @@ class SimpleFFCEngine(object):
                     to_load,
                     base_mask_for_term,
                 )
-                for loaded_term, adj_array in izip_longest(to_load, loaded):
+                for loaded_term, adj_array in zip_longest(to_load, loaded):
                     workspace[loaded_term] = adj_array
             else:
                 if term.windowed:

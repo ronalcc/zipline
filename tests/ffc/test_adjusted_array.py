@@ -1,9 +1,6 @@
 """
 Tests for chunked adjustments.
 """
-from itertools import (
-    izip_longest,
-)
 from unittest import TestCase
 
 from nose_parameterized import parameterized
@@ -13,6 +10,7 @@ from numpy import (
     full,
 )
 from numpy.testing import assert_array_equal
+from six.moves import zip_longest
 
 from zipline.data.adjustment import (
     Float64Multiply,
@@ -258,7 +256,7 @@ class AdjustedArrayTestCase(TestCase):
         )
         for _ in range(2):  # Iterate 2x ensure adjusted_arrays are re-usable.
             window_iter = array.traverse(lookback)
-            for yielded, expected_yield in izip_longest(window_iter, expected):
+            for yielded, expected_yield in zip_longest(window_iter, expected):
                 assert_array_equal(yielded, expected_yield)
 
     @parameterized.expand(_gen_multiplicative_adjustment_cases(float))
@@ -275,7 +273,7 @@ class AdjustedArrayTestCase(TestCase):
         )
         for _ in range(2):  # Iterate 2x ensure adjusted_arrays are re-usable.
             window_iter = array.traverse(lookback)
-            for yielded, expected_yield in izip_longest(window_iter, expected):
+            for yielded, expected_yield in zip_longest(window_iter, expected):
                 assert_array_equal(yielded, expected_yield)
 
     @parameterized.expand(_gen_overwrite_adjustment_cases(float))
@@ -292,7 +290,7 @@ class AdjustedArrayTestCase(TestCase):
         )
         for _ in range(2):  # Iterate 2x ensure adjusted_arrays are re-usable.
             window_iter = array.traverse(lookback)
-            for yielded, expected_yield in izip_longest(window_iter, expected):
+            for yielded, expected_yield in zip_longest(window_iter, expected):
                 assert_array_equal(yielded, expected_yield)
 
     def test_invalid_lookback(self):
