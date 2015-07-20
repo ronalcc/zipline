@@ -1,6 +1,5 @@
 from contextlib import contextmanager
 from itertools import (
-    ifilter,
     product,
 )
 from logbook import FileHandler
@@ -12,6 +11,7 @@ from zipline.utils import security_list
 from six import (
     itervalues,
 )
+from six.moves import filter
 
 import os
 import pandas as pd
@@ -201,7 +201,7 @@ def all_pairs_matching_predicate(values, pred):
     >>> list(all_pairs_matching_predicate("abcd", lt))
     [('a', 'b'), ('a', 'c'), ('a', 'd'), ('b', 'c'), ('b', 'd'), ('c', 'd')]
     """
-    return ifilter(lambda pair: pred(*pair), product(values, repeat=2))
+    return filter(lambda pair: pred(*pair), product(values, repeat=2))
 
 
 def product_upper_triangle(values, include_diagonal=False):
