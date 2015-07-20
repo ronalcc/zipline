@@ -214,6 +214,8 @@ class Factor(Term):
         }
     )
 
+    __truediv__ = clsdict['__div__']
+
     eq = binary_operator('==')
 
     def rank(self, method='ordinal'):

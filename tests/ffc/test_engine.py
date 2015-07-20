@@ -1,6 +1,7 @@
 """
 Tests for SimpleFFCEngine
 """
+from __future__ import division
 from unittest import TestCase
 
 from numpy import (
