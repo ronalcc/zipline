@@ -10,6 +10,7 @@ from numpy import (
     empty,
     find_common_type,
 )
+from six import integer_types
 
 from zipline.modelling.term import Term
 
@@ -57,7 +58,7 @@ MATH_BINOPS = {'+', '-', '*', '/', '**', '%'}
 FILTER_BINOPS = {'&', '|'}  # NumExpr doesn't support xor.
 COMPARISONS = {'<', '<=', '!=', '>=', '>', '=='}
 
-NUMERIC_TYPES = (int, float, long)
+NUMERIC_TYPES = (float,) + integer_types
 NUMEXPR_MATH_FUNCS = {
     'sin',
     'cos',

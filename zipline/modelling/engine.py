@@ -13,7 +13,10 @@ from six import (
     iteritems,
     with_metaclass,
 )
-from six.moves import zip
+from six.moves import (
+    reduce,
+    zip,
+)
 
 from networkx import (
     DiGraph,
