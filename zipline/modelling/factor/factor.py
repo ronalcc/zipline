@@ -215,6 +215,7 @@ class Factor(Term):
     )
 
     __truediv__ = clsdict['__div__']
+    __rtruediv__ = clsdict['__rdiv__']
 
     eq = binary_operator('==')
 
