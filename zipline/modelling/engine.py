@@ -40,29 +40,6 @@ class CyclicDependency(Exception):
     pass
 
 
-def partition_by_type(dict_, types):
-    """
-    Partition a dictionary into sub-dictionaries by value-type.
-
-    Example
-    -------
-    >>> partition_by_type({'x': 1, 'y': '2', 'z': 3}, (str, int))
-    [{'y': '2'}, {'x': 1, 'z': 3}]
-    """
-    acc = {t: {} for t in types}
-    for key, value in iteritems(dict_):
-        for t in types:
-            if isinstance(value, t):
-                acc[t][key] = value
-                break
-        else:
-            # This block is hit if none of the types match.
-            raise TypeError(
-                "%s is not a subtype of any of %s" % (type(value), types),
-            )
-    return [acc[t] for t in types]
-
-
 def build_dependency_graph(terms):
     """
     Build a dependency graph containing the given terms and their dependencies.
