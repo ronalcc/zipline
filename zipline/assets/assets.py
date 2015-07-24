@@ -37,7 +37,6 @@ from zipline.errors import (
 from zipline.assets._assets import (
     Asset, Equity, Future
 )
-from zipline.utils.lazyval import lazyval
 
 log = Logger('assets.py')
 
