@@ -164,6 +164,7 @@ class TestMiscellaneousAPI(TestCase):
         for method in algo.all_api_methods():
             name = method.__name__
             sentinel = object()
+
             def fake_method(*args, **kwargs):
                 return sentinel
             setattr(algo, name, fake_method)
