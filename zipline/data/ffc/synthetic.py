@@ -234,12 +234,9 @@ class SyntheticDailyBarWriter(BcolzDailyBarWriter):
         return data
 
     # BEGIN SUPERCLASS INTERFACE
-    def gen_ctables(self, assets):
+    def gen_tables(self, assets):
         for asset in assets:
             yield asset, self._raw_data_for_asset(asset)
-
-    def to_timestamp(self, raw_dt):
-        return Timestamp(raw_dt, unit='s', tz='UTC')
 
     def to_uint32(self, array, colname):
         if colname in {'open', 'high', 'low', 'close'}:

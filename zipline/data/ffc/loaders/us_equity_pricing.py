@@ -39,6 +39,7 @@ from numpy import (
 from pandas import (
     DatetimeIndex,
     read_csv,
+    Timestamp,
 )
 from six import (
     iteritems,
@@ -91,24 +92,16 @@ class BcolzDailyBarWriter(with_metaclass(ABCMeta)):
     """
 
     @abstractmethod
-    def gen_ctables(self, assets):
+    def gen_tables(self, assets):
         """
         Return an iterator of pairs of (asset_id, bcolz.ctable).
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def to_timestamp(self, raw_dt):
-        """
-        Convert a raw date entry produced by gen_ctables into a pandas
-        Timestamp.
-        """
-        raise NotImplementedError()
-
-    @abstractmethod
     def to_uint32(self, array, colname):
         """
-        Convert raw column values produced by gen_ctables into uint32 values.
+        Convert raw column values produced by gen_tables into uint32 values.
 
         Parameters
         ----------
@@ -145,7 +138,7 @@ class BcolzDailyBarWriter(with_metaclass(ABCMeta)):
         table : bcolz.ctable
             The newly-written table.
         """
-        _iterator = self.gen_ctables(assets)
+        _iterator = self.gen_tables(assets)
         if show_progress:
             pbar = progressbar(
                 _iterator,
@@ -200,8 +193,13 @@ class BcolzDailyBarWriter(with_metaclass(ABCMeta)):
             # Calculate the number of trading days between the first date
             # in the stored data and the first date of **this** asset. This
             # offset used for output alignment by the reader.
+
+            # HACK: Index with a list so that we get back an array we can pass
+            # to self.to_uint32.  We could try to extract this in the loop
+            # above, but that makes the logic a lot messier.
+            asset_first_day = self.to_uint32(table['day'][[0]], 'day')[0]
             calendar_offset[asset_key] = calendar.get_loc(
-                self.to_timestamp(table['day'][0])
+                Timestamp(asset_first_day, unit='s', tz='UTC'),
             )
 
         # This writes the table to disk.
@@ -249,7 +247,7 @@ class DailyBarWriterFromCSVs(BcolzDailyBarWriter):
     def __init__(self, asset_map):
         self._asset_map = asset_map
 
-    def gen_ctables(self, assets):
+    def gen_tables(self, assets):
         """
         Read CSVs as DataFrames from our asset map.
         """
@@ -260,10 +258,6 @@ class DailyBarWriterFromCSVs(BcolzDailyBarWriter):
                 raise KeyError("No path supplied for asset %s" % asset)
             data = read_csv(path, parse_dates=['day'], dtype=dtypes)
             yield asset, ctable.fromdataframe(data)
-
-    def to_timestamp(self, raw_dt):
-        """No conversion necessary"""
-        return raw_dt
 
     def to_uint32(self, array, colname):
         arrmax = array.max()
@@ -276,7 +270,7 @@ class DailyBarWriterFromCSVs(BcolzDailyBarWriter):
         elif colname == 'day':
             nanos_per_second = (1000 * 1000 * 1000)
             self.check_uint_safe(arrmax.view(int) / nanos_per_second, colname)
-            return (array.view(int) / (1000 * 1000 * 1000)).astype(uint32)
+            return (array.view(int) / nanos_per_second).astype(uint32)
 
     @staticmethod
     def check_uint_safe(value, colname):
